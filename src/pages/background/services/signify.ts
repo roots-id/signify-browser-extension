@@ -9,6 +9,7 @@ import {
   IssueCredentialResult,
   CredentialData,
 } from "signify-ts";
+import * as vleiWorkflows from "vlei-verifier-workflows";
 import { sendMessage } from "@src/shared/browser/runtime-utils";
 import { sendMessageTab, getCurrentTab } from "@src/shared/browser/tabs-utils";
 import { userService } from "@pages/background/services/user";
@@ -23,6 +24,7 @@ import {
   setNodeValueInEdge,
   waitOperation,
 } from "@src/shared/signify-utils";
+import { workflowLoader } from "@src/shared/workflow-loader";
 
 const PASSCODE_TIMEOUT = 5;
 
@@ -63,10 +65,46 @@ const Signify = () => {
     return randomPasscode();
   };
 
+  const generateAndStorePasscode = async () => {
+    try {
+      // Generate a new passcode and get config
+      const result = await workflowLoader.generatePasscodeAndConfig();
+      const { passcode, config } = result;
+
+      // Get the configured URLs
+      const agentUrl = await configService.getAgentUrl();
+      const bootUrl = await configService.getBootUrl();
+
+      if (!agentUrl || !bootUrl) {
+        throw new Error("Agent URL or Boot URL not configured");
+      }
+
+      // Update the config with the URLs
+      if (config && config.agents && config.agents.browser_extension) {
+        config.agents.browser_extension.url = agentUrl;
+        config.agents.browser_extension.boot_url = bootUrl;
+      }
+
+      // Store the passcode for later use
+      await userService.setPasscode(passcode);
+
+      console.log("Generated passcode and stored in user config", {
+        agentUrl,
+        bootUrl,
+        passcodeLength: passcode ? passcode.length : 0,
+      });
+
+      return { passcode, success: true };
+    } catch (error) {
+      console.error("Error generating and storing passcode:", error);
+      return { passcode: null, success: false, error };
+    }
+  };
+
   const bootAndConnect = async (
     agentUrl: string,
     bootUrl: string,
-    passcode: string
+    passcode: string,
   ) => {
     try {
       await ready();
@@ -78,6 +116,66 @@ const Signify = () => {
       setTimeoutAlarm();
     } catch (error) {
       console.error(error);
+      _client = null;
+      return { error };
+    }
+  };
+
+  const bootAndConnectWorkflow = async (
+    agentUrl: string,
+    bootUrl: string,
+    passcode: string,
+  ) => {
+    try {
+      console.log("Initializing workflow for boot and connect");
+      await ready();
+
+      // Load workflow and config from files (with fallback to defaults)
+      const workflow = await workflowLoader.loadWorkflow("create-client");
+      if (!workflow) {
+        throw new Error("Failed to load workflow definition");
+      }
+
+      // Load config with runtime values
+      const config = await workflowLoader.loadConfig("create-client-config", {
+        agentUrl,
+        bootUrl,
+        passcode,
+      });
+
+      if (!config) {
+        throw new Error("Failed to load config");
+      }
+
+      console.log("Starting workflow runner");
+      // Run the workflow
+      const workflowRunner = new vleiWorkflows.WorkflowRunner(workflow, config);
+
+      try {
+        await workflowRunner.runWorkflow();
+
+        // Get the client from the workflow state
+        const workflowState = vleiWorkflows.WorkflowState.getInstance();
+        _client = workflowState.clients.get("browser_extension");
+
+        if (!_client) {
+          throw new Error("Workflow did not create a client");
+        }
+
+        // Set controller ID and timeout
+        const state = await getState();
+        await userService.setControllerId(state?.controller?.state?.i);
+        setTimeoutAlarm();
+
+        return { success: true };
+      } catch (workflowError) {
+        console.error("Error running workflow:", workflowError);
+        // Fallback to direct bootAndConnect if workflow fails
+        console.log("Falling back to direct bootAndConnect");
+        return await bootAndConnect(agentUrl, bootUrl, passcode);
+      }
+    } catch (error) {
+      console.error("Error in bootAndConnectWorkflow:", error);
       _client = null;
       return { error };
     }
@@ -116,7 +214,7 @@ const Signify = () => {
         _client
           ? "Signify client is not valid, unable to connect"
           : "Signify client is not connected",
-        _client
+        _client,
       );
       return false;
     }
@@ -158,7 +256,7 @@ const Signify = () => {
   // credential identifier => credential.sad.d
   const getCredential = async (
     credentialIdentifier: string,
-    includeCESR: boolean = false
+    includeCESR: boolean = false,
   ) => {
     validateClient();
     return await _client?.credentials().get(credentialIdentifier, includeCESR);
@@ -253,7 +351,7 @@ const Signify = () => {
     }
     const signin = await signinResource.getDomainSigninById(
       origin,
-      session.signinId
+      session.signinId,
     );
     let credentialResp;
     if (signin?.credential) {
@@ -379,11 +477,11 @@ const Signify = () => {
     const session = await sessionService.get({ tabId, origin });
     let { aid, registry, rules, edge } = await getCreateCredentialPrerequisites(
       session?.aidName!,
-      schemaSaid
+      schemaSaid,
     );
     if (isGroupAid(aid) === true) {
       throw new Error(
-        `Attestation credential issuance by multisig identifier ${session.aidName} is not supported yet!`
+        `Attestation credential issuance by multisig identifier ${session.aidName} is not supported yet!`,
       );
     }
 
@@ -414,7 +512,7 @@ const Signify = () => {
 
   const getCreateCredentialPrerequisites = async (
     aidName: string,
-    schemaSaid: string
+    schemaSaid: string,
   ): Promise<{
     aid: any | undefined;
     schema: any;
@@ -467,7 +565,7 @@ const Signify = () => {
 
   const createCredential = async (
     name: string,
-    args: CredentialData
+    args: CredentialData,
   ): Promise<IssueCredentialResult | undefined> => {
     const result = await _client?.credentials().issue(name, args);
     return result;
@@ -487,16 +585,20 @@ const Signify = () => {
     disconnect,
     listIdentifiers,
     listCredentials,
-    getCredential,
-    createAID,
-    generatePasscode,
-    bootAndConnect,
-    getControllerID,
-    getSignedHeaders,
     authorizeSelectedSignin,
     getSessionInfo,
     removeSessionInfo,
+    getSignedHeaders,
+    getState,
+    getCredential,
+    getControllerID,
+    createAID,
+    createCredential,
     createAttestationCredential,
+    generatePasscode,
+    generateAndStorePasscode,
+    bootAndConnect,
+    bootAndConnectWorkflow,
   };
 };
 
