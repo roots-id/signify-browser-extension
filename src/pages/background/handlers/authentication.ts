@@ -4,7 +4,6 @@ import { getDomainFromUrl } from "@shared/utils";
 import { IHandler, ISessionConfig, ISignin } from "@config/types";
 import { getCurrentUrl } from "@pages/background/utils";
 import { getExtensionApi } from "@src/shared/browser/extension-api";
-import * as vleiWorkflows from "vlei-verifier-workflows";
 
 export async function handleCheckAgentConnection({
   sendResponse,
@@ -157,7 +156,7 @@ export async function handleRunUploadedWorkflow({
   data,
 }: IHandler) {
   try {
-    console.log("Running uploaded workflow");
+    console.log("Running uploaded workflow with delegation error patching");
 
     // Get the browser extension API
     const browser = getExtensionApi();
@@ -176,23 +175,23 @@ export async function handleRunUploadedWorkflow({
     const workflowData = JSON.parse(result.uploaded_workflow);
     const configData = JSON.parse(result.uploaded_config);
 
-    console.log("Retrieved workflow and config from storage:", {
-      workflowData,
-      configData,
-    });
+    console.log("Retrieved workflow and config from storage");
 
     // Check if we have valid workflow data
     if (!workflowData.workflow || !workflowData.workflow.steps) {
       throw new Error("Invalid workflow format");
     }
 
-    try {
-      // Run the workflow using the WorkflowRunner directly
-      const workflowRunner = new vleiWorkflows.WorkflowRunner(
-        workflowData,
-        configData,
+    // Use the signify service to run the workflow with safe delegation handling
+    const workflowResult = await signifyService.patchWorkflowWithSafeDelegation(
+      workflowData,
+      configData,
+    );
+
+    if (workflowResult.success) {
+      console.log(
+        "Workflow executed successfully with patched delegation handling",
       );
-      await workflowRunner.runWorkflow();
 
       // If we get here, the workflow succeeded
       sendResponse({
@@ -201,11 +200,10 @@ export async function handleRunUploadedWorkflow({
           requiresPasscode: true, // Indicate that we need a passcode for next steps
         },
       });
-    } catch (workflowError) {
-      console.error("Error running workflow:", workflowError);
-      throw new Error(
-        `Workflow execution failed: ${workflowError instanceof Error ? workflowError.message : String(workflowError)}`,
-      );
+    } else {
+      // Handle workflow error
+      console.error("Error running workflow:", workflowResult.error);
+      throw workflowResult.error;
     }
   } catch (error) {
     console.error("Error in handleRunUploadedWorkflow:", error);
