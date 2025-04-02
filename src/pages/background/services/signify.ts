@@ -648,12 +648,10 @@ const Signify = () => {
    * Create a new AID with the given name
    * This is a wrapper function that uses the workflow-based approach when possible
    * @param name The name for the AID
-   * @param delegationOptions Optional delegation parameters
    * @returns A promise that resolves to an object with success or error information
    */
   const createAID = async (
-    name: string,
-    delegationOptions?: { delegatorName?: string; delegatorPrefix?: string }
+    name: string
   ): Promise<{ success?: boolean; error?: any }> => {
     try {
       // Check if called from workflow to prevent infinite recursion
@@ -664,7 +662,7 @@ const Signify = () => {
       if (!isCalledFromWorkflow) {
         try {
           // Try to use the workflow-based approach first
-          return await createAIDWorkflow(name, delegationOptions);
+          return await createAIDWorkflow(name);
         } catch (workflowError) {
           // If the workflow approach fails, fall back to direct API call
           console.warn("Falling back to direct AID creation");
@@ -675,11 +673,6 @@ const Signify = () => {
       // Ensure client is connected
       if (!_client) {
         throw new Error("Client must be connected before creating an AID");
-      }
-
-      // If delegated AID is requested, warn that direct API may not support it properly
-      if (delegationOptions && (delegationOptions.delegatorName || delegationOptions.delegatorPrefix)) {
-        console.warn("Warning: Direct API for creating delegated AIDs may not work properly. Using as fallback only.");
       }
 
       // Use direct API call
@@ -713,8 +706,7 @@ const Signify = () => {
    * @returns A promise that resolves to an object with success or error information
    */
   const createAIDWorkflow = async (
-    name: string,
-    delegationOptions?: { delegatorName?: string; delegatorPrefix?: string }
+    name: string
   ): Promise<{ success?: boolean; error?: any }> => {
     try {
       console.log("Initializing workflow for AID creation");
@@ -795,27 +787,18 @@ const Signify = () => {
         workflow.workflow.steps.gleif_aid.description = `Creating AID: ${name}`;
       }
 
-      // Check if this is a delegated AID creation
-      const isDelegatedAid = delegationOptions && (delegationOptions.delegatorName || delegationOptions.delegatorPrefix);
+      // Run the workflow normally for AID creation
+      console.log("Starting AID workflow runner");
+      const workflowRunner = new vleiWorkflows.WorkflowRunner(workflow, config);
 
-      if (isDelegatedAid) {
-        console.log("Using patched workflow for delegated AID creation");
-        // Use our patched method for delegation to avoid "expect is not defined" error
-        return await runWorkflow(workflow, config);
-      } else {
-        // Run the workflow normally for non-delegated AIDs
-        console.log("Starting AID workflow runner");
-        const workflowRunner = new vleiWorkflows.WorkflowRunner(workflow, config);
-
-        try {
-          await workflowRunner.runWorkflow();
-          console.log(`AID ${name} created successfully via workflow`);
-          return { success: true };
-        } catch (workflowError) {
-          console.error("Error running AID workflow");
-          console.log("Falling back to direct AID creation");
-          return await createAID(name);
-        }
+      try {
+        await workflowRunner.runWorkflow();
+        console.log(`AID ${name} created successfully via workflow`);
+        return { success: true };
+      } catch (workflowError) {
+        console.error("Error running AID workflow");
+        console.log("Falling back to direct AID creation");
+        return await createAID(name);
       }
     } catch (error) {
       console.error("Error in createAIDWorkflow");
