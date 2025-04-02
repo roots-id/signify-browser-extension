@@ -613,18 +613,16 @@ const Signify = () => {
   };
 
   /**
-   * Patches the createAidSinglesig method in vleiWorkflows.VleiIssuance to handle delegation safely
+   * Runs a workflow using the vleiWorkflows.WorkflowRunner
+   * 
+   * Executes the provided workflow with the given configuration using the workflow runner.
+   * Handles any errors that occur during workflow execution.
    *
-   * This implementation:
-   * 1. Uses the original function for non-delegated AIDs to maintain compatibility
-   * 2. Only applies custom code to the delegated AID case that was causing errors
-   * 3. Adds delays, safe property access, and better error handling for delegations
-   *
-   * @param workflowData The workflow data to run
-   * @param configData The configuration for the workflow
+   * @param workflowData The workflow data containing steps to execute
+   * @param configData Configuration parameters for the workflow
    * @returns An object containing success status and any error information
    */
-  const patchWorkflowWithSafeDelegation = async (
+  const runWorkflow = async (
     workflowData: any,
     configData: any,
   ): Promise<{ success: boolean; error?: any }> => {
@@ -803,7 +801,7 @@ const Signify = () => {
       if (isDelegatedAid) {
         console.log("Using patched workflow for delegated AID creation");
         // Use our patched method for delegation to avoid "expect is not defined" error
-        return await patchWorkflowWithSafeDelegation(workflow, config);
+        return await runWorkflow(workflow, config);
       } else {
         // Run the workflow normally for non-delegated AIDs
         console.log("Starting AID workflow runner");
@@ -846,7 +844,7 @@ const Signify = () => {
     bootAndConnect,
     bootAndConnectWorkflow,
     createAIDWorkflow,
-    patchWorkflowWithSafeDelegation,
+    runWorkflow,
   };
 };
 
