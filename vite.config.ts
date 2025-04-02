@@ -108,5 +108,16 @@ export default defineConfig({
     outDir,
     sourcemap: isDev,
     emptyOutDir: false,
+    // Add optimizeDeps config for better CommonJS handling
+    commonjsOptions: {
+      include: [/vlei-verifier-workflows/, /node_modules/],
+      transformMixedEsModules: true,
+    },
   },
+  optimizeDeps: {
+    include: ['vlei-verifier-workflows'],
+    esbuildOptions: {
+      target: 'esnext',
+    }
+  }
 });

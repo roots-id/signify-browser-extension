@@ -156,7 +156,7 @@ export async function handleRunUploadedWorkflow({
   data,
 }: IHandler) {
   try {
-    console.log("Running uploaded workflow with delegation error patching");
+    console.log("Running uploaded workflow with provided workflow and configuration");
 
     // Get the browser extension API
     const browser = getExtensionApi();
@@ -183,14 +183,14 @@ export async function handleRunUploadedWorkflow({
     }
 
     // Use the signify service to run the workflow with safe delegation handling
-    const workflowResult = await signifyService.patchWorkflowWithSafeDelegation(
+    const workflowResult = await signifyService.runWorkflow(
       workflowData,
       configData,
     );
 
     if (workflowResult.success) {
       console.log(
-        "Workflow executed successfully with patched delegation handling",
+        "Workflow executed successfully with provided workflow and configuration",
       );
 
       // If we get here, the workflow succeeded
