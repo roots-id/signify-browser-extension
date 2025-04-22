@@ -7,6 +7,7 @@ const EVENT_TYPE = {
   action_icon: "action-icon",
   authentication: "authentication",
   create_resource: "create-resource",
+  config_workflow: "config-workflow",
   delete_resource: "delete-resource",
   fetch_resource: "fetch-resource",
   update_resource: "update-resource",
@@ -25,6 +26,7 @@ export const CS_EVENTS = {
   fetch_resource_credential: `${CS}-${EVENT_TYPE.fetch_resource}-credential`,
 
   create_resource_data_attestation_credential: `${CS}-${EVENT_TYPE.create_resource}-data-attestation-credential`,
+  config_workflow_issue_credential: `${CS}-${EVENT_TYPE.config_workflow}-issue-credential`,
 
   vendor_info_get_vendor_data: `${CS}-${EVENT_TYPE.vendor_info}-get-vendor-data`,
   vendor_info_provide_config_url: `${CS}-${EVENT_TYPE.vendor_info}-provide-config-url`,

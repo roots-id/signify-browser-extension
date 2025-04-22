@@ -187,6 +187,25 @@ export async function handleCreateSignin({ sendResponse, data }: IHandler) {
   }
 }
 
+export async function handleConfigWorkflowIssueCredential({
+  sendResponse,
+  url,
+  tabId,
+  data,
+}: IHandler) {
+  try {
+    const resp = await signifyService.configWorkflowToIssueCredential(data.metadata);
+    sendResponse({
+      data: { ...resp },
+    });
+  } catch (error: any) {
+    console.error("Error running workflow with handleConfigWorkflowIssueCredential method:", error);
+    sendResponse({
+      error: { code: 503, message: error },
+    });
+  }
+}
+
 export async function handleCreateAttestationCredential({
   sendResponse,
   url,

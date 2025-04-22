@@ -24,12 +24,17 @@ export function CredentialCard({
       <>
         <Flex flexDirection="row" justifyContent="space-between">
           <Text fontSize={1} fontWeight="bold" $color="heading">
-            {credential.schema.title}
+            {credential.sad?.a?.engagementContextRole ??
+              credential.schema.title}
           </Text>
           <CredentialIcon size={6} />
         </Flex>
         <Box marginBottom={1} fontSize={0}>
-          <Text $color="text">{credential.schema.credentialType}</Text>
+          <Text $color="text">
+            {credential.sad?.a?.engagementContextRole
+              ? credential.schema.title
+              : credential.schema.credentialType}
+          </Text>
         </Box>
         <Box marginBottom={1} fontSize={0}>
           <Text $color="text">{credential.schema.description}</Text>
@@ -41,6 +46,18 @@ export function CredentialCard({
                 {formatMessage({ id: "credential.issuee.label" })}{" "}
                 <Subtext fontWeight="normal" $color="text">
                   {credential.issueeName}
+                </Subtext>
+              </>
+            </Text>
+          </Box>
+        ) : null}
+        {credential.sad?.a?.personLegalName ? (
+          <Box marginBottom={1}>
+            <Text fontSize={0} fontWeight="bold" $color="heading">
+              <>
+                Legal Name: {" "}
+                <Subtext fontWeight="normal" $color="text">
+                  {credential.sad?.a?.personLegalName}
                 </Subtext>
               </>
             </Text>
