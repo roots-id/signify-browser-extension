@@ -620,14 +620,13 @@ const Signify = () => {
     try {
       const userAgent = "ecr1";
 
-    // Modify both JSON and YAML configs
+    // Modify both JSON configs, workflow
     singleSigConfig.secrets.gleif1 = generatePasscode();
     singleSigConfig.secrets.qvi1 = generatePasscode();
     singleSigConfig.secrets.le1 = generatePasscode();
     singleSigConfig.secrets[userAgent] = generatePasscode();
 
     metadata?.certificates?.forEach((certificate: any, idx: number) => {
-      // Update both JSON and YAML configs
       const leToEcrVleiCredKey = `le_to_ecr_vlei_cred_${idx + 1}`;
       const agentKey = `ecr-agent-${idx + 1}`;
       const aidKey = `ecr-aid-${idx + 1}`;
@@ -636,7 +635,7 @@ const Signify = () => {
       const ecrRegistryId = `ecr_registry${idx + 1}`;
       const ecrCredId = `ecr_cred${idx + 1}`;
       const credVerificationId = `cred_verification_valid_verified${idx + 1}`;
-      // JSON config updates
+      // config updates
       singleSigConfig.credentials[leToEcrVleiCredKey] = {
         credSource: { type: "le" },
         type: "direct",
@@ -738,7 +737,7 @@ const Signify = () => {
       // If we get here, the workflow succeeded
       return {
         success: true,
-        data: { config: singleSigConfig, workflow: singleSigWorkflow },
+        data: { config: singleSigConfig, workflow: singleSigWorkflow, agent_url: "http://localhost:3901", boot_url: "http://localhost:3903" },
       };
     } else {
       throw workflowResult.error;
