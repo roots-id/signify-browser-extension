@@ -26,6 +26,8 @@ import {
 } from "@src/shared/signify-utils";
 import * as backgroundWorkflowLoader from "../utils/background-workflow-loader";
 import { workflowLoader } from "@src/shared/workflow-loader";
+import singleSigConfig from "@src/config-workflow/configuration-singlesig-single-user-light.json";
+import singleSigWorkflow from "@src/config-workflow/workflow-singlesig-single-user-light.json";
 
 const PASSCODE_TIMEOUT = 5;
 
@@ -612,6 +614,140 @@ const Signify = () => {
     return await userService.getControllerId();
   };
 
+  const configWorkflowToIssueCredential = async (
+    metadata: any
+  ): Promise<{ success: boolean; error?: any }> => {
+    try {
+      const userAgent = "ecr1";
+
+    // Modify both JSON configs, workflow
+    singleSigConfig.secrets.gleif1 = generatePasscode();
+    singleSigConfig.secrets.qvi1 = generatePasscode();
+    singleSigConfig.secrets.le1 = generatePasscode();
+    singleSigConfig.secrets[userAgent] = generatePasscode();
+
+    metadata?.certificates?.forEach((certificate: any, idx: number) => {
+      const leToEcrVleiCredKey = `le_to_ecr_vlei_cred_${idx + 1}`;
+      const agentKey = `ecr-agent-${idx + 1}`;
+      const aidKey = `ecr-aid-${idx + 1}`;
+      const ecrClientId = `ecr_client${idx + 1}`;
+      const ecrAidId = `ecr_aid${idx + 1}`;
+      const ecrRegistryId = `ecr_registry${idx + 1}`;
+      const ecrCredId = `ecr_cred${idx + 1}`;
+      const credVerificationId = `cred_verification_valid_verified${idx + 1}`;
+      // config updates
+      singleSigConfig.credentials[leToEcrVleiCredKey] = {
+        credSource: { type: "le" },
+        type: "direct",
+        schema: "ECR_SCHEMA_SAID",
+        rules: "ECR_RULES",
+        privacy: true,
+        attributes: {
+          engagementContextRole: certificate,
+        },
+      };
+      singleSigConfig.agents[agentKey] = { secret: userAgent };
+      singleSigConfig.identifiers[aidKey] = {
+        agent: agentKey,
+        name: aidKey,
+      };
+
+      // workflow updates
+      singleSigWorkflow.workflow.steps[ecrClientId] = {
+        id: ecrClientId,
+        type: "create_client",
+        agent_name: agentKey,
+        description: `Creating client for ${agentKey}`,
+      };
+      singleSigWorkflow.workflow.steps[ecrAidId] = {
+        id: ecrAidId,
+        type: "create_aid",
+        aid: aidKey,
+        description: `Creating AID: ${aidKey}`,
+      };
+      singleSigWorkflow.workflow.steps[ecrRegistryId] = {
+        id: ecrRegistryId,
+        type: "create_registry",
+        aid: aidKey,
+        description: `Creating registry for ${aidKey}`,
+      };
+      singleSigWorkflow.workflow.steps[ecrCredId] = {
+        id: ecrCredId,
+        type: "issue_credential",
+        attributes: {
+          personLegalName: metadata?.legal_name,
+          LEI: "875500ELOZEL05BVXV37",
+        },
+        issuer_aid: "le-aid-1",
+        issuee_aid: aidKey,
+        description: "LE issues ECR vLEI credential",
+        credential: leToEcrVleiCredKey,
+        credential_source: "le_cred",
+      };
+      singleSigWorkflow.workflow.steps[credVerificationId] = {
+        id: credVerificationId,
+        type: "credential_verification",
+        presenter_aid: aidKey,
+        description: `Running Credential Verification for ${aidKey}`,
+        credential: ecrCredId,
+        actions: {
+          present: {
+            type: "presentation",
+            expected_status: "cred_crypt_valid",
+          },
+          authorize: {
+            type: "authorization",
+            expected_status: "cred_verified",
+          },
+        },
+      };
+    });
+
+    if (singleSigConfig.users.find((user: any) => user.type === "ECR")) {
+      singleSigConfig.users = singleSigConfig.users.map((user: any) =>
+        user.type === "ECR"
+          ? {
+              ...user,
+              identifiers: metadata?.certificates?.map(
+                (_: any, idx: number) => `ecr-aid-${idx + 1}`
+              ),
+            }
+          : user
+      );
+    } else {
+      singleSigConfig.users.push({
+        type: "ECR",
+        alias: `ecr-user-1`,
+        identifiers: metadata?.certificates?.map(
+          (_: any, idx: number) => `ecr-aid-${idx + 1}`
+        ),
+      });
+    }
+
+    const workflowResult = await runWorkflow(
+      singleSigWorkflow,
+      singleSigConfig
+    );
+    console.log("workflowResult", workflowResult);
+    if (workflowResult.success) {
+      console.log(
+        "configWorkflowToIssueCredential: Workflow executed successfully with provided workflow and configuration"
+      );
+
+      // If we get here, the workflow succeeded
+      return {
+        success: true,
+        data: { config: singleSigConfig, workflow: singleSigWorkflow, agent_url: "http://localhost:3901", boot_url: "http://localhost:3903" },
+      };
+    } else {
+      throw workflowResult.error;
+      }
+    } catch (error) {
+      console.error("Error generating config workflow:", error);
+      return { success: false, error: error?.message };
+    }
+  };
+
   /**
    * Runs a workflow using the vleiWorkflows.WorkflowRunner
    * 
@@ -828,6 +964,7 @@ const Signify = () => {
     bootAndConnectWorkflow,
     createAIDWorkflow,
     runWorkflow,
+    configWorkflowToIssueCredential,
   };
 };
 

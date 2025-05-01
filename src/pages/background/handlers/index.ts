@@ -19,6 +19,7 @@ import {
   handleUpdateAutoSignin,
   handleCreateAttestationCredential,
   handleFetchCredential,
+  handleConfigWorkflowIssueCredential,
 } from "./resource";
 import { handleGetVendorData, handleAttemptSetVendorData } from "./vendorInfo";
 import {
@@ -89,6 +90,10 @@ export function initCSHandler() {
   handler.set(
     CS_EVENTS.create_resource_data_attestation_credential,
     handleCreateAttestationCredential,
+  );
+  handler.set(
+    CS_EVENTS.config_workflow_issue_credential,
+    handleConfigWorkflowIssueCredential,
   );
 
   handler.set(CS_EVENTS.vendor_info_get_vendor_data, handleGetVendorData);

@@ -10,5 +10,6 @@ export const TAB_STATE = {
     SELECT_AUTO_SIGNIN: "select-auto-signin",
     CREATE_DATA_ATTEST_CRED: "/signify/credential/create/data-attestation",
     GET_CREDENTIAL: "/signify/credential/get",
+    CONFIG_WORKFLOW_ISSUE_CREDENTIAL: "/signify/config-workflow-issue-credential",
     NONE: "none"
 }

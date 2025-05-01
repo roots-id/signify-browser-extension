@@ -71,6 +71,28 @@ window.addEventListener(
             sessionOneTime
           );
           break;
+        case TAB_STATE.CONFIG_WORKFLOW_ISSUE_CREDENTIAL:
+          await sendMessage({
+            type: CS_EVENTS.action_icon_set_tab,
+          });
+          requestId = event?.data?.requestId ?? "";
+          rurl = event?.data?.rurl ?? rurl;
+          setTabState(TAB_STATE.CONFIG_WORKFLOW_ISSUE_CREDENTIAL);
+          const { data: issueCredentialData } = await sendMessageWithExtId<{ metadata: any }>(getExtId(), {
+            type: CS_EVENTS.config_workflow_issue_credential,
+            data: {
+              metadata: event.data.payload.metadata,
+            },
+          });
+          requestId = event?.data?.requestId ?? "";
+          rurl = event?.data?.rurl ?? rurl;
+          postMessage({
+            type: "/signify/reply",
+            payload: issueCredentialData,
+            requestId,
+            rurl,
+          });
+          break;
         case TAB_STATE.CONFIGURE_VENDOR:
           await sendMessage({
             type: CS_EVENTS.action_icon_set,
@@ -444,4 +466,12 @@ export function getTabState() {
   console.log("window.polaris_tab_state", window.polaris_tab_state);
   console.log("getTabState: " + window.polaris_tab_state);
   return window.polaris_tab_state;
+}
+
+export function setTabData(data: any) {
+  window.polaris_tab_data = data;
+}
+
+export function getTabData() {
+  return window.polaris_tab_data;
 }
